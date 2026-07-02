@@ -1,0 +1,14 @@
+{
+  "algorithm": "zscore",
+  "days_ago": 60,
+  "variables": [
+    {
+      "variable_id": 1,
+      "last_timestamp": "2026-06-22T14:15:00+00:00"
+    }
+  ],
+  "algorithm_params": {
+    "degree": 2,
+    "threshold": 1.7
+  }
+}
