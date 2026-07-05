@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 from python_functions.json_config import JsonConfig
 from python_functions.anomaly_detection import RawDataAnomalyDetector
 
@@ -57,6 +59,7 @@ def main() -> None:
     except Exception as exc:
         print("\nAn error occurred during anomaly detection.")
         print(f"Error: {exc}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

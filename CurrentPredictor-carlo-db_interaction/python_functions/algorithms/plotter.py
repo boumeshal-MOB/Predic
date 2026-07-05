@@ -57,6 +57,6 @@ def plot_anomalies(
         template="plotly_white",
     )
 
-    # fig.show() opens a browser tab, which isn't possible on Vercel's serverless runtime.
-    if not os.getenv("VERCEL"):
+    # fig.show() opens a browser tab, which isn't possible on Vercel or in CI (GitHub Actions sets CI=true).
+    if not os.getenv("VERCEL") and not os.getenv("CI"):
         fig.show()
