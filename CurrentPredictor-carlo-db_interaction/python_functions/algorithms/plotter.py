@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import plotly.graph_objects as go
 import pandas as pd
 
@@ -55,4 +57,6 @@ def plot_anomalies(
         template="plotly_white",
     )
 
-    fig.show()
+    # fig.show() opens a browser tab, which isn't possible on Vercel's serverless runtime.
+    if not os.getenv("VERCEL"):
+        fig.show()

@@ -121,9 +121,19 @@ class RawDataAnomalyDetector:
                 .isoformat()
             )
 
-            self.config.update_last_timestamp(
-                variable_id=variable_id,
-                last_timestamp=latest_timestamp,
-            )
+            try:
+                self.config.update_last_timestamp(
+                    variable_id=variable_id,
+                    last_timestamp=latest_timestamp,
+                )
+            except OSError:
+                # Read-only filesystem (e.g. Vercel serverless deployment):
+                # anomalies are already saved to the DB, which dedupes on
+                # conflict, so skipping the on-disk checkpoint is safe.
+                LOGGER.warning(
+                    "Could not persist last_timestamp for variable %s "
+                    "(read-only filesystem?)",
+                    variable_id,
+                )
 
         return anomalies
