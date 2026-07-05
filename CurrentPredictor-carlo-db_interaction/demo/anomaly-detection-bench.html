@@ -1,0 +1,610 @@
+<title>Anomaly Detection Bench</title>
+<style>
+  :root {
+    --page:        #f9f9f7;
+    --surface-1:   #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:       #898781;
+    --gridline:    #e1e0d9;
+    --border:      rgba(11,11,11,0.10);
+    --series-1:    #2a78d6;
+    --critical:    #d03b3b;
+    --good:        #0ca30c;
+    --good-bg:     rgba(12,163,12,0.10);
+    --warning:     #a15c00;
+    --warning-bg:  rgba(250,178,25,0.16);
+
+    --font-display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-body:    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono:    ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", "JetBrains Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page:        #0d0d0d;
+      --surface-1:   #1a1a19;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted:       #898781;
+      --gridline:    #2c2c2a;
+      --border:      rgba(255,255,255,0.10);
+      --series-1:    #3987e5;
+      --critical:    #e2605f;
+      --good:        #0ca30c;
+      --good-bg:     rgba(12,163,12,0.16);
+      --warning:     #fab219;
+      --warning-bg:  rgba(250,178,25,0.14);
+    }
+  }
+  :root[data-theme="dark"] {
+    --page:        #0d0d0d;
+    --surface-1:   #1a1a19;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted:       #898781;
+    --gridline:    #2c2c2a;
+    --border:      rgba(255,255,255,0.10);
+    --series-1:    #3987e5;
+    --critical:    #e2605f;
+    --good:        #0ca30c;
+    --good-bg:     rgba(12,163,12,0.16);
+    --warning:     #fab219;
+    --warning-bg:  rgba(250,178,25,0.14);
+  }
+  :root[data-theme="light"] {
+    --page:        #f9f9f7;
+    --surface-1:   #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:       #898781;
+    --gridline:    #e1e0d9;
+    --border:      rgba(11,11,11,0.10);
+    --series-1:    #2a78d6;
+    --critical:    #d03b3b;
+    --good:        #0ca30c;
+    --good-bg:     rgba(12,163,12,0.10);
+    --warning:     #a15c00;
+    --warning-bg:  rgba(250,178,25,0.16);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+
+  header.bench {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(28px, 4vw, 38px);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .lede {
+    margin: 0;
+    max-width: 62ch;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .lede code {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+    background: var(--gridline);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+  }
+
+  /* stat strip */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .stat {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .stat-value {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 1;
+  }
+
+  .stat-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: none;
+  }
+  .status-dot.good { background: var(--good); }
+  .status-dot.warning { background: var(--warning); }
+  .status-dot.neutral { background: var(--muted); }
+
+  /* chart panel */
+  .panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .panel-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .panel-params {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .chart-wrap {
+    position: relative;
+  }
+
+  svg.chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .axis-text { fill: var(--muted); font-family: var(--font-mono); font-size: 10.5px; }
+  .series-line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .anomaly-dot { fill: var(--critical); stroke: var(--surface-1); stroke-width: 2; }
+  .crosshair { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; pointer-events: none; }
+  .hover-dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; opacity: 0; pointer-events: none; }
+  .hit-layer { fill: transparent; cursor: crosshair; }
+
+  .tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--page);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, -110%);
+    transition: opacity 0.08s ease;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  }
+  .tooltip .t-value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .tooltip .t-sub { color: var(--text-secondary); }
+  .tooltip .t-key {
+    display: inline-block;
+    width: 10px; height: 2px;
+    background: var(--series-1);
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .tooltip .t-flag { color: var(--critical); font-weight: 600; }
+
+  .legend {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-line { width: 16px; height: 2px; background: var(--series-1); border-radius: 1px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--critical); border: 2px solid var(--surface-1); outline: 1px solid var(--gridline); }
+
+  details.table-toggle {
+    margin-top: 2px;
+  }
+  details.table-toggle summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    user-select: none;
+  }
+  details.table-toggle summary:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--series-1);
+    outline-offset: 2px;
+  }
+
+  .table-scroll { overflow-x: auto; margin-top: 10px; }
+  table.flags {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12.5px;
+  }
+  table.flags th, table.flags td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--gridline);
+    white-space: nowrap;
+  }
+  table.flags th {
+    color: var(--muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+  }
+  table.flags td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  table.flags td.gt-yes { color: var(--good); font-weight: 600; }
+  table.flags td.gt-no { color: var(--muted); }
+
+  footer.bench {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+  }
+  footer.bench code { font-family: var(--font-mono); }
+
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="bench">
+    <span class="eyebrow">CurrentPredictor &middot; offline algorithm test</span>
+    <h1>Anomaly Detection Bench</h1>
+    <p class="lede">
+      A synthetic 14-day hourly signal for <code>variable_id 1</code>, with 9 anomalies
+      deliberately injected as ground truth. Both detectors run directly from
+      <code>python_functions/algorithms/</code> using their production parameters
+      (<code>config.json</code> / <code>config1.json</code>) &mdash; no database, no
+      deployment, just the algorithm against known-good data.
+    </p>
+  </header>
+
+  <section class="stats" aria-label="Summary">
+    <div class="stat">
+      <span class="stat-label">Injected anomalies</span>
+      <span class="stat-value">9</span>
+      <span class="stat-note"><span class="status-dot neutral"></span>ground truth</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Z-Score detected</span>
+      <span class="stat-value">9</span>
+      <span class="stat-note"><span class="status-dot good"></span>9/9 matched &middot; 0 false positives</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Isolation Forest detected</span>
+      <span class="stat-value">11</span>
+      <span class="stat-note"><span class="status-dot warning"></span>9/9 matched &middot; 2 false positives</span>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-zscore" aria-label="Z-Score chart">
+    <div class="panel-head">
+      <span class="panel-title">Z-Score</span>
+      <span class="panel-params">degree=2 &middot; threshold=1.7</span>
+    </div>
+    <div class="chart-wrap">
+      <svg class="chart" viewBox="0 0 900 240" preserveAspectRatio="none"></svg>
+      <div class="tooltip"></div>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-line"></span>sensor value</span>
+      <span class="legend-item"><span class="legend-dot"></span>flagged anomaly</span>
+    </div>
+    <details class="table-toggle">
+      <summary>Show flagged points (9)</summary>
+      <div class="table-scroll"></div>
+    </details>
+  </section>
+
+  <section class="panel" id="panel-iforest" aria-label="Isolation Forest chart">
+    <div class="panel-head">
+      <span class="panel-title">Isolation Forest</span>
+      <span class="panel-params">contamination=0.03 &middot; n_estimators=100</span>
+    </div>
+    <div class="chart-wrap">
+      <svg class="chart" viewBox="0 0 900 240" preserveAspectRatio="none"></svg>
+      <div class="tooltip"></div>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-line"></span>sensor value</span>
+      <span class="legend-item"><span class="legend-dot"></span>flagged anomaly</span>
+    </div>
+    <details class="table-toggle">
+      <summary>Show flagged points (11)</summary>
+      <div class="table-scroll"></div>
+    </details>
+  </section>
+
+  <footer class="bench">
+    <span>Data generated in-memory (numpy), never touches a database. Re-run locally with <code>python anomaly_main.py</code> once a real Postgres instance is configured in <code>config.env</code>.</span>
+  </footer>
+
+</div>
+
+<script id="chart-data" type="application/json">
+{"timestamps":["2026-06-01T00:00:00+00:00","2026-06-01T01:00:00+00:00","2026-06-01T02:00:00+00:00","2026-06-01T03:00:00+00:00","2026-06-01T04:00:00+00:00","2026-06-01T05:00:00+00:00","2026-06-01T06:00:00+00:00","2026-06-01T07:00:00+00:00","2026-06-01T08:00:00+00:00","2026-06-01T09:00:00+00:00","2026-06-01T10:00:00+00:00","2026-06-01T11:00:00+00:00","2026-06-01T12:00:00+00:00","2026-06-01T13:00:00+00:00","2026-06-01T14:00:00+00:00","2026-06-01T15:00:00+00:00","2026-06-01T16:00:00+00:00","2026-06-01T17:00:00+00:00","2026-06-01T18:00:00+00:00","2026-06-01T19:00:00+00:00","2026-06-01T20:00:00+00:00","2026-06-01T21:00:00+00:00","2026-06-01T22:00:00+00:00","2026-06-01T23:00:00+00:00","2026-06-02T00:00:00+00:00","2026-06-02T01:00:00+00:00","2026-06-02T02:00:00+00:00","2026-06-02T03:00:00+00:00","2026-06-02T04:00:00+00:00","2026-06-02T05:00:00+00:00","2026-06-02T06:00:00+00:00","2026-06-02T07:00:00+00:00","2026-06-02T08:00:00+00:00","2026-06-02T09:00:00+00:00","2026-06-02T10:00:00+00:00","2026-06-02T11:00:00+00:00","2026-06-02T12:00:00+00:00","2026-06-02T13:00:00+00:00","2026-06-02T14:00:00+00:00","2026-06-02T15:00:00+00:00","2026-06-02T16:00:00+00:00","2026-06-02T17:00:00+00:00","2026-06-02T18:00:00+00:00","2026-06-02T19:00:00+00:00","2026-06-02T20:00:00+00:00","2026-06-02T21:00:00+00:00","2026-06-02T22:00:00+00:00","2026-06-02T23:00:00+00:00","2026-06-03T00:00:00+00:00","2026-06-03T01:00:00+00:00","2026-06-03T02:00:00+00:00","2026-06-03T03:00:00+00:00","2026-06-03T04:00:00+00:00","2026-06-03T05:00:00+00:00","2026-06-03T06:00:00+00:00","2026-06-03T07:00:00+00:00","2026-06-03T08:00:00+00:00","2026-06-03T09:00:00+00:00","2026-06-03T10:00:00+00:00","2026-06-03T11:00:00+00:00","2026-06-03T12:00:00+00:00","2026-06-03T13:00:00+00:00","2026-06-03T14:00:00+00:00","2026-06-03T15:00:00+00:00","2026-06-03T16:00:00+00:00","2026-06-03T17:00:00+00:00","2026-06-03T18:00:00+00:00","2026-06-03T19:00:00+00:00","2026-06-03T20:00:00+00:00","2026-06-03T21:00:00+00:00","2026-06-03T22:00:00+00:00","2026-06-03T23:00:00+00:00","2026-06-04T00:00:00+00:00","2026-06-04T01:00:00+00:00","2026-06-04T02:00:00+00:00","2026-06-04T03:00:00+00:00","2026-06-04T04:00:00+00:00","2026-06-04T05:00:00+00:00","2026-06-04T06:00:00+00:00","2026-06-04T07:00:00+00:00","2026-06-04T08:00:00+00:00","2026-06-04T09:00:00+00:00","2026-06-04T10:00:00+00:00","2026-06-04T11:00:00+00:00","2026-06-04T12:00:00+00:00","2026-06-04T13:00:00+00:00","2026-06-04T14:00:00+00:00","2026-06-04T15:00:00+00:00","2026-06-04T16:00:00+00:00","2026-06-04T17:00:00+00:00","2026-06-04T18:00:00+00:00","2026-06-04T19:00:00+00:00","2026-06-04T20:00:00+00:00","2026-06-04T21:00:00+00:00","2026-06-04T22:00:00+00:00","2026-06-04T23:00:00+00:00","2026-06-05T00:00:00+00:00","2026-06-05T01:00:00+00:00","2026-06-05T02:00:00+00:00","2026-06-05T03:00:00+00:00","2026-06-05T04:00:00+00:00","2026-06-05T05:00:00+00:00","2026-06-05T06:00:00+00:00","2026-06-05T07:00:00+00:00","2026-06-05T08:00:00+00:00","2026-06-05T09:00:00+00:00","2026-06-05T10:00:00+00:00","2026-06-05T11:00:00+00:00","2026-06-05T12:00:00+00:00","2026-06-05T13:00:00+00:00","2026-06-05T14:00:00+00:00","2026-06-05T15:00:00+00:00","2026-06-05T16:00:00+00:00","2026-06-05T17:00:00+00:00","2026-06-05T18:00:00+00:00","2026-06-05T19:00:00+00:00","2026-06-05T20:00:00+00:00","2026-06-05T21:00:00+00:00","2026-06-05T22:00:00+00:00","2026-06-05T23:00:00+00:00","2026-06-06T00:00:00+00:00","2026-06-06T01:00:00+00:00","2026-06-06T02:00:00+00:00","2026-06-06T03:00:00+00:00","2026-06-06T04:00:00+00:00","2026-06-06T05:00:00+00:00","2026-06-06T06:00:00+00:00","2026-06-06T07:00:00+00:00","2026-06-06T08:00:00+00:00","2026-06-06T09:00:00+00:00","2026-06-06T10:00:00+00:00","2026-06-06T11:00:00+00:00","2026-06-06T12:00:00+00:00","2026-06-06T13:00:00+00:00","2026-06-06T14:00:00+00:00","2026-06-06T15:00:00+00:00","2026-06-06T16:00:00+00:00","2026-06-06T17:00:00+00:00","2026-06-06T18:00:00+00:00","2026-06-06T19:00:00+00:00","2026-06-06T20:00:00+00:00","2026-06-06T21:00:00+00:00","2026-06-06T22:00:00+00:00","2026-06-06T23:00:00+00:00","2026-06-07T00:00:00+00:00","2026-06-07T01:00:00+00:00","2026-06-07T02:00:00+00:00","2026-06-07T03:00:00+00:00","2026-06-07T04:00:00+00:00","2026-06-07T05:00:00+00:00","2026-06-07T06:00:00+00:00","2026-06-07T07:00:00+00:00","2026-06-07T08:00:00+00:00","2026-06-07T09:00:00+00:00","2026-06-07T10:00:00+00:00","2026-06-07T11:00:00+00:00","2026-06-07T12:00:00+00:00","2026-06-07T13:00:00+00:00","2026-06-07T14:00:00+00:00","2026-06-07T15:00:00+00:00","2026-06-07T16:00:00+00:00","2026-06-07T17:00:00+00:00","2026-06-07T18:00:00+00:00","2026-06-07T19:00:00+00:00","2026-06-07T20:00:00+00:00","2026-06-07T21:00:00+00:00","2026-06-07T22:00:00+00:00","2026-06-07T23:00:00+00:00","2026-06-08T00:00:00+00:00","2026-06-08T01:00:00+00:00","2026-06-08T02:00:00+00:00","2026-06-08T03:00:00+00:00","2026-06-08T04:00:00+00:00","2026-06-08T05:00:00+00:00","2026-06-08T06:00:00+00:00","2026-06-08T07:00:00+00:00","2026-06-08T08:00:00+00:00","2026-06-08T09:00:00+00:00","2026-06-08T10:00:00+00:00","2026-06-08T11:00:00+00:00","2026-06-08T12:00:00+00:00","2026-06-08T13:00:00+00:00","2026-06-08T14:00:00+00:00","2026-06-08T15:00:00+00:00","2026-06-08T16:00:00+00:00","2026-06-08T17:00:00+00:00","2026-06-08T18:00:00+00:00","2026-06-08T19:00:00+00:00","2026-06-08T20:00:00+00:00","2026-06-08T21:00:00+00:00","2026-06-08T22:00:00+00:00","2026-06-08T23:00:00+00:00","2026-06-09T00:00:00+00:00","2026-06-09T01:00:00+00:00","2026-06-09T02:00:00+00:00","2026-06-09T03:00:00+00:00","2026-06-09T04:00:00+00:00","2026-06-09T05:00:00+00:00","2026-06-09T06:00:00+00:00","2026-06-09T07:00:00+00:00","2026-06-09T08:00:00+00:00","2026-06-09T09:00:00+00:00","2026-06-09T10:00:00+00:00","2026-06-09T11:00:00+00:00","2026-06-09T12:00:00+00:00","2026-06-09T13:00:00+00:00","2026-06-09T14:00:00+00:00","2026-06-09T15:00:00+00:00","2026-06-09T16:00:00+00:00","2026-06-09T17:00:00+00:00","2026-06-09T18:00:00+00:00","2026-06-09T19:00:00+00:00","2026-06-09T20:00:00+00:00","2026-06-09T21:00:00+00:00","2026-06-09T22:00:00+00:00","2026-06-09T23:00:00+00:00","2026-06-10T00:00:00+00:00","2026-06-10T01:00:00+00:00","2026-06-10T02:00:00+00:00","2026-06-10T03:00:00+00:00","2026-06-10T04:00:00+00:00","2026-06-10T05:00:00+00:00","2026-06-10T06:00:00+00:00","2026-06-10T07:00:00+00:00","2026-06-10T08:00:00+00:00","2026-06-10T09:00:00+00:00","2026-06-10T10:00:00+00:00","2026-06-10T11:00:00+00:00","2026-06-10T12:00:00+00:00","2026-06-10T13:00:00+00:00","2026-06-10T14:00:00+00:00","2026-06-10T15:00:00+00:00","2026-06-10T16:00:00+00:00","2026-06-10T17:00:00+00:00","2026-06-10T18:00:00+00:00","2026-06-10T19:00:00+00:00","2026-06-10T20:00:00+00:00","2026-06-10T21:00:00+00:00","2026-06-10T22:00:00+00:00","2026-06-10T23:00:00+00:00","2026-06-11T00:00:00+00:00","2026-06-11T01:00:00+00:00","2026-06-11T02:00:00+00:00","2026-06-11T03:00:00+00:00","2026-06-11T04:00:00+00:00","2026-06-11T05:00:00+00:00","2026-06-11T06:00:00+00:00","2026-06-11T07:00:00+00:00","2026-06-11T08:00:00+00:00","2026-06-11T09:00:00+00:00","2026-06-11T10:00:00+00:00","2026-06-11T11:00:00+00:00","2026-06-11T12:00:00+00:00","2026-06-11T13:00:00+00:00","2026-06-11T14:00:00+00:00","2026-06-11T15:00:00+00:00","2026-06-11T16:00:00+00:00","2026-06-11T17:00:00+00:00","2026-06-11T18:00:00+00:00","2026-06-11T19:00:00+00:00","2026-06-11T20:00:00+00:00","2026-06-11T21:00:00+00:00","2026-06-11T22:00:00+00:00","2026-06-11T23:00:00+00:00","2026-06-12T00:00:00+00:00","2026-06-12T01:00:00+00:00","2026-06-12T02:00:00+00:00","2026-06-12T03:00:00+00:00","2026-06-12T04:00:00+00:00","2026-06-12T05:00:00+00:00","2026-06-12T06:00:00+00:00","2026-06-12T07:00:00+00:00","2026-06-12T08:00:00+00:00","2026-06-12T09:00:00+00:00","2026-06-12T10:00:00+00:00","2026-06-12T11:00:00+00:00","2026-06-12T12:00:00+00:00","2026-06-12T13:00:00+00:00","2026-06-12T14:00:00+00:00","2026-06-12T15:00:00+00:00","2026-06-12T16:00:00+00:00","2026-06-12T17:00:00+00:00","2026-06-12T18:00:00+00:00","2026-06-12T19:00:00+00:00","2026-06-12T20:00:00+00:00","2026-06-12T21:00:00+00:00","2026-06-12T22:00:00+00:00","2026-06-12T23:00:00+00:00","2026-06-13T00:00:00+00:00","2026-06-13T01:00:00+00:00","2026-06-13T02:00:00+00:00","2026-06-13T03:00:00+00:00","2026-06-13T04:00:00+00:00","2026-06-13T05:00:00+00:00","2026-06-13T06:00:00+00:00","2026-06-13T07:00:00+00:00","2026-06-13T08:00:00+00:00","2026-06-13T09:00:00+00:00","2026-06-13T10:00:00+00:00","2026-06-13T11:00:00+00:00","2026-06-13T12:00:00+00:00","2026-06-13T13:00:00+00:00","2026-06-13T14:00:00+00:00","2026-06-13T15:00:00+00:00","2026-06-13T16:00:00+00:00","2026-06-13T17:00:00+00:00","2026-06-13T18:00:00+00:00","2026-06-13T19:00:00+00:00","2026-06-13T20:00:00+00:00","2026-06-13T21:00:00+00:00","2026-06-13T22:00:00+00:00","2026-06-13T23:00:00+00:00","2026-06-14T00:00:00+00:00","2026-06-14T01:00:00+00:00","2026-06-14T02:00:00+00:00","2026-06-14T03:00:00+00:00","2026-06-14T04:00:00+00:00","2026-06-14T05:00:00+00:00","2026-06-14T06:00:00+00:00","2026-06-14T07:00:00+00:00","2026-06-14T08:00:00+00:00","2026-06-14T09:00:00+00:00","2026-06-14T10:00:00+00:00","2026-06-14T11:00:00+00:00","2026-06-14T12:00:00+00:00","2026-06-14T13:00:00+00:00","2026-06-14T14:00:00+00:00","2026-06-14T15:00:00+00:00","2026-06-14T16:00:00+00:00","2026-06-14T17:00:00+00:00","2026-06-14T18:00:00+00:00","2026-06-14T19:00:00+00:00","2026-06-14T20:00:00+00:00","2026-06-14T21:00:00+00:00","2026-06-14T22:00:00+00:00","2026-06-14T23:00:00+00:00"],"values":[20.183,20.162,21.97,22.716,21.467,22.166,23.137,22.778,22.668,21.699,22.128,21.353,20.16,20.03,18.921,17.513,17.783,16.697,17.707,17.262,17.491,17.68,19.454,19.361,19.983,20.815,22.079,22.611,23.126,23.446,24.585,22.964,22.611,21.963,22.21,21.804,20.292,19.089,18.385,18.659,6.551,8.81,17.021,17.672,17.912,18.46,19.483,19.828,20.887,21.307,22.173,23.01,22.244,23.236,23.258,23.064,22.993,23.588,21.561,21.947,19.59,19.633,19.218,18.86,18.469,18.228,17.451,17.495,18.597,18.454,18.435,19.254,20.168,21.805,22.325,23.286,23.102,23.763,24.155,23.502,23.672,22.534,22.102,21.377,20.122,20.366,19.078,18.756,18.57,18.26,18.299,17.953,18.068,18.761,18.428,19.305,20.166,21.148,22.72,22.568,23.371,24.687,23.806,24.37,23.078,23.048,21.99,21.643,21.584,19.277,19.861,19.131,18.165,17.365,18.183,17.935,18.702,19.062,20.641,20.27,9.151,32.89,22.852,24.167,24.339,24.362,25.138,23.455,23.494,22.855,22.566,21.26,21.701,20.42,18.958,18.619,18.95,18.975,19.578,20.241,19.051,18.695,18.641,20.814,20.952,21.977,22.593,23.507,24.718,24.482,24.405,23.786,23.113,23.36,23.008,23.387,21.638,21.383,19.78,18.758,18.423,18.277,19.897,18.239,19.545,18.987,20.719,21.125,21.586,22.442,22.807,24.099,24.045,23.892,23.973,24.751,25.306,23.987,23.209,22.738,22.584,21.165,20.073,20.372,19.499,19.874,18.97,18.238,18.461,20.759,21.434,21.026,21.69,23.583,22.776,23.534,24.944,24.631,24.977,24.79,37.384,24.976,23.574,23.193,20.81,21.244,20.054,19.217,18.955,18.992,19.65,18.416,19.54,19.718,20.443,21.975,22.483,23.749,23.587,23.894,24.664,25.253,25.326,24.477,24.892,24.508,25.27,24.173,21.768,21.341,19.922,19.834,19.911,20.156,18.903,19.06,18.474,20.151,20.243,21.296,21.874,23.13,22.865,23.671,26.316,24.575,24.802,26.47,26.821,23.908,36.575,35.089,9.97,21.161,20.893,20.895,20.223,19.447,19.5,18.867,19.859,20.329,21.259,21.52,22.923,24.034,24.253,25.002,25.31,25.588,25.267,25.798,25.26,26.107,25.184,23.758,22.302,21.326,21.995,20.826,20.49,18.865,20.376,20.205,19.576,20.446,21.518,22.125,22.705,23.604,24.249,25.123,26.401,24.288,25.798,25.954,25.736,24.868,23.426,23.963,32.739,21.313,22.038,20.712,20.405,19.52,19.859,20.952,20.832,22.008,22.306,22.597,24.166,24.17,25.137,25.093,25.798,25.649,26.774,25.381,26.267,25.217,25.423,24.457,24.332,22.912,20.817,21.109,19.979,20.081,21.207,20.795,20.303,20.6,21.86,21.844],"injected_indices":[40,41,120,121,200,250,251,252,300],"zscore":{"params":{"degree":2,"threshold":1.7},"anomaly_timestamps":["2026-06-02T16:00:00+00:00","2026-06-02T17:00:00+00:00","2026-06-06T00:00:00+00:00","2026-06-06T01:00:00+00:00","2026-06-09T08:00:00+00:00","2026-06-11T10:00:00+00:00","2026-06-11T11:00:00+00:00","2026-06-11T12:00:00+00:00","2026-06-13T12:00:00+00:00"],"summary":{"true_positive":9,"false_positive":0,"false_negative":0}},"isolation_forest":{"params":{"contamination":0.03,"n_estimators":100},"anomaly_timestamps":["2026-06-01T17:00:00+00:00","2026-06-02T16:00:00+00:00","2026-06-02T17:00:00+00:00","2026-06-06T00:00:00+00:00","2026-06-06T01:00:00+00:00","2026-06-09T08:00:00+00:00","2026-06-11T08:00:00+00:00","2026-06-11T10:00:00+00:00","2026-06-11T11:00:00+00:00","2026-06-11T12:00:00+00:00","2026-06-13T12:00:00+00:00"],"summary":{"true_positive":9,"false_positive":2,"false_negative":0}}}
+
+</script>
+
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById('chart-data').textContent);
+  var timestamps = data.timestamps;
+  var values = data.values;
+  var injectedSet = new Set(data.injected_indices);
+
+  var margin = { top: 10, right: 12, bottom: 24, left: 40 };
+  var W = 900, H = 240;
+  var plotW = W - margin.left - margin.right;
+  var plotH = H - margin.top - margin.bottom;
+
+  var minV = Math.min.apply(null, values);
+  var maxV = Math.max.apply(null, values);
+  var pad = (maxV - minV) * 0.08;
+  minV -= pad; maxV += pad;
+
+  function xAt(i) { return margin.left + (i / (values.length - 1)) * plotW; }
+  function yAt(v) { return margin.top + (1 - (v - minV) / (maxV - minV)) * plotH; }
+
+  function niceTicks(lo, hi, count) {
+    var span = hi - lo;
+    var step = Math.pow(10, Math.floor(Math.log10(span / count)));
+    var err = (span / count) / step;
+    if (err >= 7.5) step *= 10;
+    else if (err >= 3.5) step *= 5;
+    else if (err >= 1.5) step *= 2;
+    var ticks = [];
+    var t = Math.ceil(lo / step) * step;
+    for (; t <= hi; t += step) ticks.push(Math.round(t * 100) / 100);
+    return ticks;
+  }
+
+  function formatDate(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+  function formatDateTime(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+           d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs) {
+    var e = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function buildTable(container, anomalyTimestamps, summary) {
+    var anomalySet = {};
+    anomalyTimestamps.forEach(function (t) { anomalySet[t] = true; });
+
+    var table = document.createElement('table');
+    table.className = 'flags';
+    var thead = document.createElement('thead');
+    var htr = document.createElement('tr');
+    ['Timestamp', 'Value', 'In ground truth'].forEach(function (h) {
+      var th = document.createElement('th');
+      th.textContent = h;
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+    anomalyTimestamps.forEach(function (ts) {
+      var idx = timestamps.indexOf(ts);
+      var tr = document.createElement('tr');
+
+      var tdT = document.createElement('td');
+      tdT.textContent = formatDateTime(ts);
+      tr.appendChild(tdT);
+
+      var tdV = document.createElement('td');
+      tdV.className = 'num';
+      tdV.textContent = values[idx].toFixed(2);
+      tr.appendChild(tdV);
+
+      var tdG = document.createElement('td');
+      var isGT = injectedSet.has(idx);
+      tdG.className = isGT ? 'gt-yes' : 'gt-no';
+      tdG.textContent = isGT ? 'Yes' : 'No (false positive)';
+      tr.appendChild(tdG);
+
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+
+  function renderPanel(panelId, anomalyTimestamps) {
+    var panel = document.getElementById(panelId);
+    var svg = panel.querySelector('svg.chart');
+    var tooltip = panel.querySelector('.tooltip');
+    var tableContainer = panel.querySelector('.table-scroll');
+
+    var anomalyIdx = anomalyTimestamps
+      .map(function (t) { return timestamps.indexOf(t); })
+      .filter(function (i) { return i >= 0; })
+      .sort(function (a, b) { return a - b; });
+    var anomalySet = new Set(anomalyIdx);
+
+    // gridlines + y ticks
+    var yTicks = niceTicks(minV, maxV, 4);
+    yTicks.forEach(function (v) {
+      var y = yAt(v);
+      svg.appendChild(el('line', { class: 'gridline', x1: margin.left, x2: W - margin.right, y1: y, y2: y }));
+      var label = el('text', { class: 'axis-text', x: margin.left - 8, y: y + 3, 'text-anchor': 'end' });
+      label.textContent = v.toFixed(1);
+      svg.appendChild(label);
+    });
+
+    // x ticks: every 48 points (~2 days)
+    for (var i = 0; i < timestamps.length; i += 48) {
+      var x = xAt(i);
+      var label = el('text', { class: 'axis-text', x: x, y: H - 6, 'text-anchor': 'middle' });
+      label.textContent = formatDate(timestamps[i]);
+      svg.appendChild(label);
+    }
+
+    // series line
+    var d = '';
+    for (var i = 0; i < values.length; i++) {
+      d += (i === 0 ? 'M' : 'L') + xAt(i).toFixed(2) + ',' + yAt(values[i]).toFixed(2) + ' ';
+    }
+    svg.appendChild(el('path', { class: 'series-line', d: d }));
+
+    // anomaly markers
+    anomalyIdx.forEach(function (i) {
+      svg.appendChild(el('circle', { class: 'anomaly-dot', cx: xAt(i), cy: yAt(values[i]), r: 5 }));
+    });
+
+    // crosshair + hover dot
+    var crosshair = el('line', { class: 'crosshair', x1: 0, x2: 0, y1: margin.top, y2: H - margin.bottom });
+    var hoverDot = el('circle', { class: 'hover-dot', r: 4 });
+    svg.appendChild(crosshair);
+    svg.appendChild(hoverDot);
+
+    var hit = el('rect', {
+      class: 'hit-layer',
+      x: margin.left, y: 0, width: plotW, height: H
+    });
+    svg.appendChild(hit);
+
+    function showAt(i) {
+      var x = xAt(i), y = yAt(values[i]);
+      crosshair.setAttribute('x1', x);
+      crosshair.setAttribute('x2', x);
+      crosshair.setAttribute('opacity', 1);
+      hoverDot.setAttribute('cx', x);
+      hoverDot.setAttribute('cy', y);
+      hoverDot.setAttribute('opacity', 1);
+
+      var flagged = anomalySet.has(i);
+      tooltip.innerHTML = '';
+
+      var row1 = document.createElement('div');
+      var key = document.createElement('span');
+      key.className = 't-key';
+      row1.appendChild(key);
+      var valSpan = document.createElement('span');
+      valSpan.className = 't-value';
+      valSpan.textContent = values[i].toFixed(2);
+      row1.appendChild(valSpan);
+      tooltip.appendChild(row1);
+
+      var row2 = document.createElement('div');
+      row2.className = 't-sub';
+      row2.textContent = formatDateTime(timestamps[i]);
+      tooltip.appendChild(row2);
+
+      if (flagged) {
+        var row3 = document.createElement('div');
+        row3.className = 't-flag';
+        row3.textContent = 'Flagged as anomaly';
+        tooltip.appendChild(row3);
+      }
+
+      var pct = x / W * 100;
+      tooltip.style.left = pct + '%';
+      tooltip.style.top = (y / H * 100) + '%';
+      tooltip.style.opacity = 1;
+    }
+
+    function hide() {
+      crosshair.setAttribute('opacity', 0);
+      hoverDot.setAttribute('opacity', 0);
+      tooltip.style.opacity = 0;
+    }
+
+    hit.addEventListener('pointermove', function (evt) {
+      var rect = svg.getBoundingClientRect();
+      var relX = (evt.clientX - rect.left) / rect.width * W;
+      var i = Math.round(((relX - margin.left) / plotW) * (values.length - 1));
+      i = Math.max(0, Math.min(values.length - 1, i));
+      showAt(i);
+    });
+    hit.addEventListener('pointerleave', hide);
+
+    buildTable(tableContainer, anomalyTimestamps, null);
+  }
+
+  renderPanel('panel-zscore', data.zscore.anomaly_timestamps);
+  renderPanel('panel-iforest', data.isolation_forest.anomaly_timestamps);
+})();
+</script>
